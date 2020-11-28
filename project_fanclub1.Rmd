@@ -1,0 +1,24 @@
+---
+title: "STAT 420: Final Data Project (OG Fan Club #1)"
+authors: "Sarah Lee, Aayush Aggarwal, Albert Sadiku, Alexander Marcozzi"
+date: "Due: Monday, December 14 by 11:30 PM CT"
+output: 
+  html_document: 
+    theme: readable
+    toc: yes
+---
+
+# Data Explaination and Setup
+
+<br>
+
+**Import the data:**
+```{r}
+pollution = read.csv('pollution_no_dup.csv')
+```
+
+<br>
+
+Stuff goes here.
+
+# Other section here
