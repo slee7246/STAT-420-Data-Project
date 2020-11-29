@@ -381,20 +381,213 @@ summary {
 <div id="TOC">
 <ul>
 <li><a href="#data-explaination-and-setup">Data Explaination and Setup</a></li>
-<li><a href="#other-section-here">Other section here</a></li>
+<li><a href="#building-the-model">Building the Model</a></li>
 </ul>
 </div>
 
 <div id="data-explaination-and-setup" class="section level1">
 <h1>Data Explaination and Setup</h1>
 <p><br></p>
-<p><strong>Import the data:</strong></p>
-<pre class="r"><code>pollution = read.csv(&#39;pollution_no_dup.csv&#39;)</code></pre>
+<p><strong>Description of the Data:</strong></p>
+<p>The data file used for this project focuses on pollution in the U.S. The file includes emission data from cities and towns around the country across multiple days and years, though we have chosen to focus on 2016 in the interest of workability. The variables include location information, such as state, city, and county, along with pollution information such as the amount of various greenhouse gasses emitted such as NO2, CO2, SO2, and O3. In total, there are 24 variables that actually contain data, and there are 6151 observations after cleaning duplicate entries and taking just the 2016 data. We will be attempting to create a model with CO.Mean as the response.</p>
 <p><br></p>
-<p>Stuff goes here.</p>
+<p><strong>Note about the data:</strong></p>
+<p>The original dataset had two sets of duplicated measurements each day, the only difference being the CO measurements (the last 3 columns on the original data). The first set of duplicates had a value for ‘CO.AQI’ and the other duplicated set did not (marked as ‘NA’). To keep the data consistent, we removed the second duplicated set that had the ‘NA’ - ultimately cleaning the dataset so there’s only one recorded data point was present per day. We will also remove certain unnecessary variables and entries that are missing data</p>
+<p><br></p>
+<p><strong>Import the data:</strong></p>
+<pre class="r"><code>#install.packages(&quot;lmtest&quot;)
+library(faraway)  # for VIF function
+library(MASS)     # for boxcox
+library(lmtest)   # for shapiro normality test
+pollution = read.csv(&#39;pollution_no_dup.csv&#39;)
+pollution = subset(pollution, select = -c(X, State.Code, County.Code, Site.Num, Address, NO2.Units, O3.Units, SO2.Units, CO.Units))
+pollution = pollution[complete.cases(pollution), ]  # remove entries that are missing data
+names(pollution)</code></pre>
+<pre><code>##  [1] &quot;State&quot;             &quot;County&quot;            &quot;City&quot;             
+##  [4] &quot;Date.Local&quot;        &quot;NO2.Mean&quot;          &quot;NO2.1st.Max.Value&quot;
+##  [7] &quot;NO2.1st.Max.Hour&quot;  &quot;NO2.AQI&quot;           &quot;O3.Mean&quot;          
+## [10] &quot;O3.1st.Max.Value&quot;  &quot;O3.1st.Max.Hour&quot;   &quot;O3.AQI&quot;           
+## [13] &quot;SO2.Mean&quot;          &quot;SO2.1st.Max.Value&quot; &quot;SO2.1st.Max.Hour&quot; 
+## [16] &quot;SO2.AQI&quot;           &quot;CO.Mean&quot;           &quot;CO.1st.Max.Value&quot; 
+## [19] &quot;CO.1st.Max.Hour&quot;   &quot;CO.AQI&quot;</code></pre>
+<p><br></p>
+<p><strong>Function Definitions:</strong></p>
+<pre class="r"><code>plot_fitted_resid = function(model, pointcol = &quot;dodgerblue&quot;, linecol = &quot;darkorange&quot;) {
+  plot(fitted(model), resid(model), 
+       col = pointcol, pch = 20, cex = 1.5,
+       xlab = &quot;Fitted&quot;, ylab = &quot;Residuals&quot;)
+  abline(h = 0, col = linecol, lwd = 2)
+}
+
+plot_qq = function(model, pointcol = &quot;dodgerblue&quot;, linecol = &quot;darkorange&quot;) {
+  qqnorm(resid(model), col = pointcol, pch = 20, cex = 1.5)
+  qqline(resid(model), col = linecol, lwd = 2)
+}</code></pre>
 </div>
-<div id="other-section-here" class="section level1">
-<h1>Other section here</h1>
+<div id="building-the-model" class="section level1">
+<h1>Building the Model</h1>
+<p><strong>Check for multicollinearity:</strong></p>
+<pre class="r"><code>numeric_data = subset(pollution, select = -c(State, County, City, Date.Local))
+numeric_data = numeric_data[is.finite(rowSums(log(numeric_data[-1]))),]</code></pre>
+<pre><code>## Warning in FUN(X[[i]], ...): NaNs produced
+
+## Warning in FUN(X[[i]], ...): NaNs produced</code></pre>
+<pre class="r"><code>pollution_add = lm(CO.Mean ~ ., data = numeric_data)
+
+vif(pollution_add)</code></pre>
+<pre><code>##          NO2.Mean NO2.1st.Max.Value  NO2.1st.Max.Hour           NO2.AQI 
+##          7.581312        775.904629          1.525323        775.331627 
+##           O3.Mean  O3.1st.Max.Value   O3.1st.Max.Hour            O3.AQI 
+##          6.284791         20.559685          1.090631         13.915289 
+##          SO2.Mean SO2.1st.Max.Value  SO2.1st.Max.Hour           SO2.AQI 
+##          2.155519         79.281724          1.225083         79.273951 
+##  CO.1st.Max.Value   CO.1st.Max.Hour            CO.AQI 
+##        188.751747          1.418753        189.963180</code></pre>
+<pre class="r"><code>names(numeric_data)[vif(pollution_add) &lt;= 5]</code></pre>
+<pre><code>## [1] &quot;NO2.1st.Max.Hour&quot; &quot;O3.1st.Max.Hour&quot;  &quot;SO2.Mean&quot;         &quot;SO2.1st.Max.Hour&quot;
+## [5] &quot;CO.1st.Max.Value&quot;</code></pre>
+<pre class="r"><code>names(numeric_data)[vif(pollution_add) &lt;= 10]</code></pre>
+<pre><code>## [1] &quot;NO2.Mean&quot;         &quot;NO2.1st.Max.Hour&quot; &quot;O3.Mean&quot;          &quot;O3.1st.Max.Hour&quot; 
+## [5] &quot;SO2.Mean&quot;         &quot;SO2.1st.Max.Hour&quot; &quot;CO.1st.Max.Value&quot; &quot;CO.AQI&quot;</code></pre>
+<p><br></p>
+<p>We can see that quite a few of our prospective predictor variables have large VIF values, which suggests multicolinearity. Our next step will be to compare the resulting smaller models with the model containing all predictors.</p>
+<p><br></p>
+<pre class="r"><code>pollution_add_less5 = lm(CO.Mean ~ NO2.1st.Max.Hour + O3.1st.Max.Hour + SO2.Mean + SO2.1st.Max.Hour + CO.1st.Max.Value, data = numeric_data)
+
+pollution_add_less10 = lm(CO.Mean ~ NO2.Mean + NO2.1st.Max.Hour + O3.Mean + O3.1st.Max.Hour + SO2.Mean + SO2.1st.Max.Hour + CO.1st.Max.Value + CO.1st.Max.Value + CO.AQI, data = numeric_data)
+
+anova(pollution_add_less5, pollution_add_less10)</code></pre>
+<pre><code>## Analysis of Variance Table
+## 
+## Model 1: CO.Mean ~ NO2.1st.Max.Hour + O3.1st.Max.Hour + SO2.Mean + SO2.1st.Max.Hour + 
+##     CO.1st.Max.Value
+## Model 2: CO.Mean ~ NO2.Mean + NO2.1st.Max.Hour + O3.Mean + O3.1st.Max.Hour + 
+##     SO2.Mean + SO2.1st.Max.Hour + CO.1st.Max.Value + CO.1st.Max.Value + 
+##     CO.AQI
+##   Res.Df    RSS Df Sum of Sq      F    Pr(&gt;F)    
+## 1    906 6.9922                                  
+## 2    903 6.5220  3   0.47022 21.701 1.412e-13 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
+<pre class="r"><code>anova(pollution_add_less10, pollution_add)</code></pre>
+<pre><code>## Analysis of Variance Table
+## 
+## Model 1: CO.Mean ~ NO2.Mean + NO2.1st.Max.Hour + O3.Mean + O3.1st.Max.Hour + 
+##     SO2.Mean + SO2.1st.Max.Hour + CO.1st.Max.Value + CO.1st.Max.Value + 
+##     CO.AQI
+## Model 2: CO.Mean ~ NO2.Mean + NO2.1st.Max.Value + NO2.1st.Max.Hour + NO2.AQI + 
+##     O3.Mean + O3.1st.Max.Value + O3.1st.Max.Hour + O3.AQI + SO2.Mean + 
+##     SO2.1st.Max.Value + SO2.1st.Max.Hour + SO2.AQI + CO.1st.Max.Value + 
+##     CO.1st.Max.Hour + CO.AQI
+##   Res.Df   RSS Df Sum of Sq      F    Pr(&gt;F)    
+## 1    903 6.522                                  
+## 2    896 5.521  7     1.001 23.207 &lt; 2.2e-16 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
+<pre class="r"><code>summary(pollution_add_less5)$adj.r.squared</code></pre>
+<pre><code>## [1] 0.8468224</code></pre>
+<pre class="r"><code>summary(pollution_add_less10)$adj.r.squared</code></pre>
+<pre><code>## [1] 0.8566487</code></pre>
+<pre class="r"><code>summary(pollution_add)$adj.r.squared</code></pre>
+<pre><code>## [1] 0.8777021</code></pre>
+<p><br></p>
+<p>From the ANOVA tests as well as the adjusted R-squared values above, it seems that the multicollinearity is not a problem, so we will not drop any predictors.</p>
+<p><br></p>
+<p><strong>Trying Two-way Interactions:</strong></p>
+<p><br></p>
+<p>Now that we have made a decision on multicollinearity, we will try models with two-way interactions.</p>
+<p><br></p>
+<pre class="r"><code>pollution_two_way = lm(CO.Mean ~ . ^ 2, data = numeric_data)
+
+anova(pollution_add, pollution_two_way)</code></pre>
+<pre><code>## Analysis of Variance Table
+## 
+## Model 1: CO.Mean ~ NO2.Mean + NO2.1st.Max.Value + NO2.1st.Max.Hour + NO2.AQI + 
+##     O3.Mean + O3.1st.Max.Value + O3.1st.Max.Hour + O3.AQI + SO2.Mean + 
+##     SO2.1st.Max.Value + SO2.1st.Max.Hour + SO2.AQI + CO.1st.Max.Value + 
+##     CO.1st.Max.Hour + CO.AQI
+## Model 2: CO.Mean ~ (NO2.Mean + NO2.1st.Max.Value + NO2.1st.Max.Hour + 
+##     NO2.AQI + O3.Mean + O3.1st.Max.Value + O3.1st.Max.Hour + 
+##     O3.AQI + SO2.Mean + SO2.1st.Max.Value + SO2.1st.Max.Hour + 
+##     SO2.AQI + CO.1st.Max.Value + CO.1st.Max.Hour + CO.AQI)^2
+##   Res.Df    RSS  Df Sum of Sq      F    Pr(&gt;F)    
+## 1    896 5.5210                                   
+## 2    791 3.2568 105    2.2643 5.2375 &lt; 2.2e-16 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
+<pre class="r"><code>summary(pollution_two_way)$adj.r.squared</code></pre>
+<pre><code>## [1] 0.9182821</code></pre>
+<p><br></p>
+<p>As we can see, the model using two-way interactions outperforms the previous best additive model. We can now try to use backwards AIC variable selection to make the model smaller.</p>
+<p><br></p>
+<pre class="r"><code>pollution_two_back_aic = step(pollution_two_way, direction = &quot;backward&quot;, trace = 0)
+
+anova(pollution_two_back_aic, pollution_two_way)</code></pre>
+<pre><code>## Analysis of Variance Table
+## 
+## Model 1: CO.Mean ~ NO2.Mean + NO2.1st.Max.Value + NO2.1st.Max.Hour + NO2.AQI + 
+##     O3.Mean + O3.1st.Max.Value + O3.1st.Max.Hour + O3.AQI + SO2.Mean + 
+##     SO2.1st.Max.Value + SO2.1st.Max.Hour + SO2.AQI + CO.1st.Max.Value + 
+##     CO.1st.Max.Hour + CO.AQI + NO2.Mean:NO2.1st.Max.Value + NO2.Mean:NO2.AQI + 
+##     NO2.Mean:O3.1st.Max.Hour + NO2.Mean:SO2.Mean + NO2.Mean:CO.1st.Max.Value + 
+##     NO2.Mean:CO.AQI + NO2.1st.Max.Value:O3.Mean + NO2.1st.Max.Value:O3.1st.Max.Hour + 
+##     NO2.1st.Max.Value:O3.AQI + NO2.1st.Max.Value:SO2.Mean + NO2.1st.Max.Value:SO2.1st.Max.Value + 
+##     NO2.1st.Max.Value:SO2.1st.Max.Hour + NO2.1st.Max.Value:SO2.AQI + 
+##     NO2.1st.Max.Value:CO.1st.Max.Value + NO2.1st.Max.Hour:CO.1st.Max.Hour + 
+##     NO2.AQI:O3.Mean + NO2.AQI:O3.1st.Max.Value + NO2.AQI:O3.1st.Max.Hour + 
+##     NO2.AQI:O3.AQI + NO2.AQI:SO2.1st.Max.Hour + NO2.AQI:SO2.AQI + 
+##     NO2.AQI:CO.1st.Max.Value + NO2.AQI:CO.1st.Max.Hour + O3.Mean:SO2.Mean + 
+##     O3.Mean:SO2.1st.Max.Value + O3.Mean:SO2.AQI + O3.Mean:CO.AQI + 
+##     O3.1st.Max.Hour:CO.1st.Max.Value + O3.1st.Max.Hour:CO.1st.Max.Hour + 
+##     O3.AQI:SO2.Mean + O3.AQI:SO2.1st.Max.Value + O3.AQI:SO2.AQI + 
+##     SO2.Mean:SO2.AQI + SO2.Mean:CO.1st.Max.Hour + SO2.Mean:CO.AQI + 
+##     SO2.1st.Max.Value:SO2.1st.Max.Hour + SO2.1st.Max.Value:CO.1st.Max.Value + 
+##     SO2.1st.Max.Value:CO.1st.Max.Hour + SO2.1st.Max.Value:CO.AQI + 
+##     SO2.1st.Max.Hour:CO.1st.Max.Value + SO2.1st.Max.Hour:CO.1st.Max.Hour + 
+##     SO2.AQI:CO.1st.Max.Value + SO2.AQI:CO.1st.Max.Hour + SO2.AQI:CO.AQI + 
+##     CO.1st.Max.Value:CO.AQI
+## Model 2: CO.Mean ~ (NO2.Mean + NO2.1st.Max.Value + NO2.1st.Max.Hour + 
+##     NO2.AQI + O3.Mean + O3.1st.Max.Value + O3.1st.Max.Hour + 
+##     O3.AQI + SO2.Mean + SO2.1st.Max.Value + SO2.1st.Max.Hour + 
+##     SO2.AQI + CO.1st.Max.Value + CO.1st.Max.Hour + CO.AQI)^2
+##   Res.Df    RSS Df Sum of Sq      F Pr(&gt;F)
+## 1    851 3.3617                           
+## 2    791 3.2568 60   0.10498 0.4249      1</code></pre>
+<pre class="r"><code>summary(pollution_two_way)$adj.r.squared</code></pre>
+<pre><code>## [1] 0.9182821</code></pre>
+<pre class="r"><code>summary(pollution_two_back_aic)$adj.r.squared</code></pre>
+<pre><code>## [1] 0.9215953</code></pre>
+<p><br></p>
+<p>From the ANOVA test as well as the adjusted R-squared values, we can see that the model produced from the backwards AIC variable selection performs better than the previous best model with all two-way interactions. This is good, as we have managed to significantly reduce the number of predictors, from <span class="math inline">\(121\)</span> to <span class="math inline">\(61\)</span>.</p>
+<p><br></p>
+<p><strong>Testing assumptions (work in progress):</strong></p>
+<pre class="r"><code># bptest(pollution_add)
+# shapiro.test(resid(pollution_add))
+# 
+# plot_fitted_resid(pollution_add)
+# 
+# 
+# 
+# lambda = with(boxcox(pollution_add, plotit = FALSE), x[which.max(y)])
+# lambda
+# 
+# pollution_add_2 = lm((((CO.Mean ^ lambda) - 1) / lambda) ~ ., data = numeric_data)
+# plot_fitted_resid(pollution_add_2)
+# summary(pollution_add_2)$adj.r.squared
+# 
+# bptest(pollution_add_2)
+# shapiro.test(resid(pollution_add_2))
+# 
+# pollution_sqr = lm(CO.Mean ~ . ^ 2, data = numeric_data)
+# plot_fitted_resid(pollution_sqr)
+# anova(pollution_add, pollution_sqr)</code></pre>
+<p><br></p>
+<p><strong>Trying Categorical Predictors:</strong></p>
+<p><br></p>
+<p><strong>Finishing Touches?</strong></p>
+<p><br></p>
+<p><strong>Summary and Conclusion</strong></p>
+<p><br></p>
 </div>
 
 
