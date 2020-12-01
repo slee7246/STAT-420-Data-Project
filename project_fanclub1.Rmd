@@ -20,7 +20,7 @@ The data file used for this project focuses on pollution in the U.S. The file in
 
 **Note about the data:**
 
-The original dataset had two sets of duplicated measurements each day, the only difference being the CO measurements (the last 3 columns on the original data). The first set of duplicates had a value for ‘CO.AQI’ and the other duplicated set did not (marked as ‘NA’). To keep the data consistent, we removed the second duplicated set that had the 'NA' - ultimately cleaning the dataset so there's only one recorded data point was present per day. We will also remove certain unnecessary variables and entries that are missing data
+The original dataset had two sets of duplicated measurements each day, the only difference being the CO measurements (the last 3 columns on the original data). The first set of duplicates had a value for ‘CO.AQI’ and the other duplicated set did not (marked as ‘NA’). To keep the data consistent, we removed the second duplicated set that had the 'NA' - ultimately, cleaning the dataset so there's only one recorded data point that's present per day. We will also remove certain unnecessary variables and entries that are missing data or/and are not needed for this analysis. 
 
 <br>
 
@@ -30,6 +30,7 @@ The original dataset had two sets of duplicated measurements each day, the only 
 library(faraway)  # for VIF function
 library(MASS)     # for boxcox
 library(lmtest)   # for shapiro normality test
+
 pollution = read.csv('pollution_no_dup.csv')
 pollution = subset(pollution, select = -c(X, State.Code, County.Code, Site.Num, Address, NO2.Units, O3.Units, SO2.Units, CO.Units))
 pollution = pollution[complete.cases(pollution), ]  # remove entries that are missing data
@@ -106,7 +107,9 @@ Now that we have made a decision on multicollinearity, we will try models with t
 pollution_two_way = lm(CO.Mean ~ . ^ 2, data = numeric_data)
 
 anova(pollution_add, pollution_two_way)
+```
 
+```{r}
 summary(pollution_two_way)$adj.r.squared
 ```
 
@@ -121,6 +124,10 @@ pollution_two_back_aic = step(pollution_two_way, direction = "backward", trace =
 
 anova(pollution_two_back_aic, pollution_two_way)
 
+```
+
+
+```{r}
 summary(pollution_two_way)$adj.r.squared
 summary(pollution_two_back_aic)$adj.r.squared
 ```
@@ -139,16 +146,19 @@ We will now use the backwards BIC search method and identify if we can improve o
 
 ```{r}
 n = length(resid(pollution_two_way))
-pollution_two_back_bic <- step(pollution_two_way, direction = "backward", trace = 0, k = log(n))
+pollution_two_back_bic = step(pollution_two_way, direction = "backward", trace = 0, k = log(n))
 ```
 
 We will now compare this model to the one identified by the AIC search method.
 ```{r}
 anova(pollution_two_back_bic, pollution_two_back_aic)
+```
+```{r}
 summary(pollution_two_back_bic)$adj.r.squared
 summary(pollution_two_back_aic)$adj.r.squared
 ```
-From the above F - Test, we find that the $P - value = 0$. This means that for a reasonable confidence level of $\alpha = 0.05$, we reject the null hypothesis that that the predictors in the bigger AIC model are not significant. Furthermore, the Adjusted $R^2$ value for the AIC model is greater than the BIC model. Therefore, we lean towards the AIC model based on our analyses thus far.
+
+From the above F - Test, we find that the $P - value = 0$. This means that for a reasonable confidence level of $\alpha = 0.05$, we reject the null hypothesis that that the predictors in the bigger AIC model are not significant. Furthermore, the Adjusted $R^2$ value for the AIC model is greater than the BIC model. Therefore, we lean towards the AIC model.
 
 Our final step is to identify whether our AIC model is not over - fitting the data by comparing the **Cross - Validated RMSE** to the BIC model. 
 
@@ -160,7 +170,7 @@ calc_loocv_rmse = function(model) {
 calc_loocv_rmse(pollution_two_back_aic)
 calc_loocv_rmse(pollution_two_back_bic)
 ```
-As we can see above, the Cross - Validated RMSE is lower for the AIC model. Therefore, this model is also better at predicting future observations.
+As we can see above, the Cross - Validated RMSE is lower for the AIC model. Therefore, the AIC model is also better at predicting future observations.
 
 **Final Model**
 
@@ -195,6 +205,11 @@ Based on our analyses, we have decided to use the **2 - way interactive AIC mode
 <br>
 
 **Trying Categorical Predictors:**
+
+```{r}
+
+```
+
 
 <br>
 
