@@ -26,13 +26,9 @@ The original dataset had two sets of duplicated measurements each day, the only 
 
 **Import the data:**
 ```{r, message = FALSE, warning = FALSE}
-#install.packages("lmtest")
 library(faraway)  # for VIF function
-library(MASS)     # for boxcox
-library(lmtest)   # for shapiro normality test
-
 pollution = read.csv('pollution_no_dup.csv')
-pollution = subset(pollution, select = -c(X, State.Code, County.Code, Site.Num, Address, NO2.Units, O3.Units, SO2.Units, CO.Units))
+pollution = subset(pollution, select = -c(X, State.Code, County.Code, Site.Num, Address, NO2.Units, O3.Units, SO2.Units, CO.Units))  # remove unnecessary variables
 pollution = pollution[complete.cases(pollution), ]  # remove entries that are missing data
 names(pollution)
 ```
@@ -41,16 +37,8 @@ names(pollution)
 
 **Function Definitions:**
 ```{r}
-plot_fitted_resid = function(model, pointcol = "dodgerblue", linecol = "darkorange") {
-  plot(fitted(model), resid(model), 
-       col = pointcol, pch = 20, cex = 1.5,
-       xlab = "Fitted", ylab = "Residuals")
-  abline(h = 0, col = linecol, lwd = 2)
-}
-
-plot_qq = function(model, pointcol = "dodgerblue", linecol = "darkorange") {
-  qqnorm(resid(model), col = pointcol, pch = 20, cex = 1.5)
-  qqline(resid(model), col = linecol, lwd = 2)
+calc_loocv_rmse = function(model) {
+  sqrt(mean((resid(model) / (1 - hatvalues(model))) ^ 2))
 }
 ```
 
@@ -59,14 +47,17 @@ plot_qq = function(model, pointcol = "dodgerblue", linecol = "darkorange") {
 
 **Check for multicollinearity:**
 
-```{r}
-numeric_data = subset(pollution, select = -c(State, County, City, Date.Local))
-numeric_data = numeric_data[is.finite(rowSums(log(numeric_data[-1]))),]
-pollution_add = lm(CO.Mean ~ ., data = numeric_data)
+<br>
 
+We will begin by fitting a simple additive model using only numberic predictors in order to check for multicollinearity.
+
+<br>
+
+```{r}
+pollution_add = lm(CO.Mean ~ . - State - County - City - Date.Local, data = pollution)
 vif(pollution_add)
-names(numeric_data)[vif(pollution_add) <= 5]
-names(numeric_data)[vif(pollution_add) <= 10]
+names(pollution)[vif(pollution_add) <= 5]
+names(pollution)[vif(pollution_add) <= 10]
 ```
 
 <br>
@@ -76,14 +67,10 @@ We can see that quite a few of our prospective predictor variables have large VI
 <br>
 
 ```{r}
-
-pollution_add_less5 = lm(CO.Mean ~ NO2.1st.Max.Hour + O3.1st.Max.Hour + SO2.Mean + SO2.1st.Max.Hour + CO.1st.Max.Value, data = numeric_data)
-
-pollution_add_less10 = lm(CO.Mean ~ NO2.Mean + NO2.1st.Max.Hour + O3.Mean + O3.1st.Max.Hour + SO2.Mean + SO2.1st.Max.Hour + CO.1st.Max.Value + CO.1st.Max.Value + CO.AQI, data = numeric_data)
-
-anova(pollution_add_less5, pollution_add_less10)
-anova(pollution_add_less10, pollution_add)
-
+pollution_add_less5 = lm(CO.Mean ~ NO2.1st.Max.Hour + O3.1st.Max.Hour + SO2.Mean + SO2.1st.Max.Hour + CO.1st.Max.Value, data = pollution)
+pollution_add_less10 = lm(CO.Mean ~ NO2.Mean + NO2.1st.Max.Hour + O3.Mean + O3.1st.Max.Hour + SO2.Mean + SO2.1st.Max.Hour + CO.1st.Max.Value + CO.1st.Max.Value + CO.AQI, data = pollution)
+anova(pollution_add_less5, pollution_add_less10)[2, "Pr(>F)"]
+anova(pollution_add_less10, pollution_add)[2, "Pr(>F)"]
 summary(pollution_add_less5)$adj.r.squared
 summary(pollution_add_less10)$adj.r.squared
 summary(pollution_add)$adj.r.squared
@@ -93,23 +80,18 @@ summary(pollution_add)$adj.r.squared
 
 From the ANOVA tests as well as the adjusted R-squared values above, it seems that the multicollinearity is not a problem, so we will not drop any predictors.
 
-<br>
-
 **Trying Two-way Interactions:**
 
 <br>
 
-Now that we have made a decision on multicollinearity, we will try models with two-way interactions.
+Now that we have made a decision on multicollinearity, we will try to expand the model with with two-way interactions.
 
 <br>
 
 ```{r}
-pollution_two_way = lm(CO.Mean ~ . ^ 2, data = numeric_data)
-
-anova(pollution_add, pollution_two_way)
-```
-
-```{r}
+pollution_two_way = lm(CO.Mean ~ (. - State - County - City - Date.Local) ^ 2, data = pollution)
+anova(pollution_add, pollution_two_way)[2, "Pr(>F)"]
+summary(pollution_add)$adj.r.squared
 summary(pollution_two_way)$adj.r.squared
 ```
 
@@ -121,13 +103,7 @@ As we can see, the model using two-way interactions outperforms the previous bes
 
 ```{r}
 pollution_two_back_aic = step(pollution_two_way, direction = "backward", trace = 0)
-
-anova(pollution_two_back_aic, pollution_two_way)
-
-```
-
-
-```{r}
+anova(pollution_two_back_aic, pollution_two_way)[2, "Pr(>F)"]
 summary(pollution_two_way)$adj.r.squared
 summary(pollution_two_back_aic)$adj.r.squared
 ```
@@ -136,89 +112,89 @@ summary(pollution_two_back_aic)$adj.r.squared
 
 From the ANOVA test as well as the adjusted R-squared values, we can see that the model produced from the backwards AIC variable selection performs better than the previous best model with all two-way interactions.
 
+<br>
+
 ```{r}
 length(names(coef(pollution_two_way)))
 length(names(coef(pollution_two_back_aic)))
 ```
-Taking a look at the number of parameters, we have managed to reduce the number of predictors from **121** to **61** using the backwards AIC search method. 
+
+<br>
+
+Taking a look at the number of parameters, we have managed to reduce the number of predictors from **$`r length(names(coef(pollution_two_way)))`$** to **$`r length(names(coef(pollution_two_back_aic)))`$** using the backwards AIC search method.
+
+<br>
 
 We will now use the backwards BIC search method and identify if we can improve our two - way model further.
 
+<br>
 ```{r}
 n = length(resid(pollution_two_way))
 pollution_two_back_bic = step(pollution_two_way, direction = "backward", trace = 0, k = log(n))
 ```
 
+<br>
+
 We will now compare this model to the one identified by the AIC search method.
+
+<br>
+
 ```{r}
-anova(pollution_two_back_bic, pollution_two_back_aic)
-```
-```{r}
-summary(pollution_two_back_bic)$adj.r.squared
+anova(pollution_two_back_bic, pollution_two_back_aic)[2, "Pr(>F)"]
 summary(pollution_two_back_aic)$adj.r.squared
+summary(pollution_two_back_bic)$adj.r.squared
 ```
 
-From the above F - Test, we find that the $P - value = 0$. This means that for a reasonable confidence level of $\alpha = 0.05$, we reject the null hypothesis that that the predictors in the bigger AIC model are not significant. Furthermore, the Adjusted $R^2$ value for the AIC model is greater than the BIC model. Therefore, we lean towards the AIC model.
+<br>
 
-Our final step is to identify whether our AIC model is not over - fitting the data by comparing the **Cross - Validated RMSE** to the BIC model. 
+From the above F - Test, we find that the p-value is very small. This means that for a reasonable confidence level of $\alpha = 0.05$, we reject the null hypothesis that that the predictors in the bigger AIC model are not significant. Furthermore, the Adjusted $R^2$ value for the AIC model is greater than the BIC model. Therefore, we lean towards the AIC model.
+
+Our final step is to identify whether our AIC model is not over - fitting the data by comparing the **Cross - Validated RMSE** to the BIC model.
+
+<br>
 
 ```{r}
-calc_loocv_rmse = function(model) {
-  sqrt(mean((resid(model) / (1 - hatvalues(model))) ^ 2))
-}
-
 calc_loocv_rmse(pollution_two_back_aic)
 calc_loocv_rmse(pollution_two_back_bic)
 ```
+
+<br>
+
+**Trying Categorical Predictors**
+
+<br>
+
+The next step will be to attempt to add categorical predictors to the model. In order to keep the number of predictors down and to prevent the model from becoming too complex, we will only try the `State` variable.
+
+<br>
+
+```{r}
+pollution_int_categs = update(pollution_two_back_aic, . ~ . + State)
+anova(pollution_two_back_aic, pollution_int_categs)[2, "Pr(>F)"]
+summary(pollution_two_back_aic)$adj.r.squared
+summary(pollution_int_categs)$adj.r.squared
+```
+
+<br>
+
+From the anova test and the r-squared values above, we can see that the `State` categorical predictor does improve the model, so we will leave it in going forward.
+
+<br>
+
+
 As we can see above, the Cross - Validated RMSE is lower for the AIC model. Therefore, the AIC model is also better at predicting future observations.
+
+<br>
 
 **Final Model**
 
-Based on our analyses, we have decided to use the **2 - way interactive AIC model** as our final model for predicting **CO** levels.
-
-<br>
-
-**Testing assumptions (work in progress):**
-
-```{r}
-# shapiro.test(resid(pollution_add))
-# bptest(pollution_add)
-# plot_fitted_resid(pollution_add)
-# 
-# 
-# 
-# lambda = with(boxcox(pollution_add, plotit = FALSE), x[which.max(y)])
-# lambda
-# 
-# pollution_add_2 = lm((((CO.Mean ^ lambda) - 1) / lambda) ~ ., data = numeric_data)
-# plot_fitted_resid(pollution_add_2)
-# summary(pollution_add_2)$adj.r.squared
-# 
-# bptest(pollution_add_2)
-# shapiro.test(resid(pollution_add_2))
-# 
-# pollution_sqr = lm(CO.Mean ~ . ^ 2, data = numeric_data)
-# plot_fitted_resid(pollution_sqr)
-# anova(pollution_add, pollution_sqr)
-```
-
-<br>
-
-**Trying Categorical Predictors:**
-
-```{r}
-
-```
-
-
-<br>
-
-**Finishing Touches?**
-
-<br>
+Based on our analyses, we have decided to use an additive model with `State` as a categorical predictor and featuring two-way interactions, trimmed with the backwards AIC search method as our final model for predicting `CO.Mean` levels. The total number of predictors is $`r length(names(coef(pollution_int_categs)))`$ and the adjusted r-square value is $`r summary(pollution_int_categs)$adj.r.squared`$, which means it should be quite effective for predicting results for future observations.
 
 **Summary and Conclusion**
 
 <br>
 
+
+
+<br>
 
