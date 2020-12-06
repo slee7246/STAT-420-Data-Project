@@ -185,7 +185,7 @@ From the anova test and the r-squared values above, we can see that the `State` 
 
 As stated above, the Cross - Validated RMSE is lower for the AIC model. Therefore, we can conclude that the AIC model is better at predicting future observations (CO2 Means) compared to other models.
 
-## Appendix
+## Appendix   
 
 This report was created by Sarah Lee, Aayush Aggarwal, Albert Sadiku, Alexander Marcozzi.
 
