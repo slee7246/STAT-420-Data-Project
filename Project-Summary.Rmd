@@ -1,7 +1,7 @@
 ---
 title: "Analysis of Pollution in United States (2016)"
 author: ""
-date: "Due: Tuesday, December 15 by 11:30 PM CT"
+date: ""
 output:
   prettydoc::html_pretty:
     theme: architect
@@ -57,6 +57,20 @@ names(pollution)
 calc_loocv_rmse = function(model) {
   sqrt(mean((resid(model) / (1 - hatvalues(model))) ^ 2))
 }
+
+fitted_vs_residuals = function(model, pointcol, linecol) {
+  
+  plot(fitted(model), resid(model), col = pointcol, pch = 20,
+     xlab = "Fitted", 
+     ylab = "Residuals", main = "Data from Model")
+  
+  abline(h = 0, col = linecol, lwd = 2)
+}
+
+qq_plot = function(model, pointcol, linecol) {
+  qqnorm(resid(model), main = "Normal Q-Q Plot", col = pointcol, pch = 20)
+  qqline(resid(model), col = linecol, lwd = 2)
+}
 ```
 
 
@@ -87,7 +101,6 @@ summary(pollution_add_less5)$adj.r.squared
 summary(pollution_add_less10)$adj.r.squared
 summary(pollution_add)$adj.r.squared
 ```
-
 
 From the ANOVA tests as well as the adjusted R-squared values above, it seems that the multicollinearity is not a problem, so we will not drop any predictors.
 
@@ -166,16 +179,13 @@ summary(pollution_int_categs)$adj.r.squared
 
 From the anova test and the r-squared values above, we can see that the `State` categorical predictor does improve the model, so we will leave it in going forward.
 
-As we can see above, the Cross - Validated RMSE is lower for the AIC model. Therefore, the AIC model is also better at predicting future observations.
-
-
 # Results
 
 ## Discussion 
 
-AIC model is the best model to predict future observations.
+As stated above, the Cross - Validated RMSE is lower for the AIC model. Therefore, we can conclude that the AIC model is better at predicting future observations (CO2 Means) compared to other models.
 
 ## Appendix
 
-Sarah Lee, Aayush Aggarwal, Albert Sadiku, Alexander Marcozzi
+This report was created by Sarah Lee, Aayush Aggarwal, Albert Sadiku, Alexander Marcozzi.
 
