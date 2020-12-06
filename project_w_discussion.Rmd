@@ -1,0 +1,253 @@
+---
+title: "STAT 420: Final Data Project (OG Fan Club #1)"
+authors: "Sarah Lee, Aayush Aggarwal, Albert Sadiku, Alexander Marcozzi"
+date: "Due: Monday, December 14 by 11:30 PM CT"
+output: 
+  html_document: 
+    theme: readable
+    toc: yes
+---
+
+# Data Explaination and Setup
+
+<br>
+
+**Description of the Data:**
+
+The data file used for this project focuses on pollution in the U.S. The file includes emission data from cities and towns around the country across multiple days and years, though we have chosen to focus on 2016 in the interest of workability. The variables include location information, such as state, city, and county, along with pollution information such as the amount of various greenhouse gasses emitted such as NO2, CO2, SO2, and O3. In total, there are 24 variables that actually contain data, and there are 6151 observations after cleaning duplicate entries and taking just the 2016 data. We will be attempting to create a model with CO.Mean as the response.
+
+<br>
+
+**Note about the data:**
+
+The original dataset had two sets of duplicated measurements each day, the only difference being the CO measurements (the last 3 columns on the original data). The first set of duplicates had a value for ‘CO.AQI’ and the other duplicated set did not (marked as ‘NA’). To keep the data consistent, we removed the second duplicated set that had the 'NA' - ultimately, cleaning the dataset so there's only one recorded data point that's present per day. We will also remove certain unnecessary variables and entries that are missing data or/and are not needed for this analysis. 
+
+<br>
+
+**Import the data:**
+```{r, message = FALSE, warning = FALSE}
+library(faraway)  # for VIF function
+library(lmtest)   # for bptest function
+pollution = read.csv('pollution_no_dup.csv')
+pollution = subset(pollution, select = -c(X, State.Code, County.Code, Site.Num, Address, NO2.Units, O3.Units, SO2.Units, CO.Units))  # remove unnecessary variables
+pollution = pollution[complete.cases(pollution), ]  # remove entries that are missing data
+names(pollution)
+```
+
+<br>
+
+**Function Definitions:**
+```{r}
+calc_loocv_rmse = function(model) {
+  sqrt(mean((resid(model) / (1 - hatvalues(model))) ^ 2))
+}
+
+fitted_vs_residuals = function(model, pointcol, linecol) {
+  
+  plot(fitted(model), resid(model), col = pointcol, pch = 20,
+     xlab = "Fitted", 
+     ylab = "Residuals", main = "Data from Model")
+  
+  abline(h = 0, col = linecol, lwd = 2)
+}
+
+qq_plot = function(model, pointcol, linecol) {
+  qqnorm(resid(model), main = "Normal Q-Q Plot", col = pointcol, pch = 20)
+  qqline(resid(model), col = linecol, lwd = 2)
+}
+```
+
+
+
+# Building the Model
+
+**Check for multicollinearity:**
+
+<br>
+
+We will begin by fitting a simple additive model using only numberic predictors in order to check for multicollinearity.
+
+<br>
+
+```{r}
+pollution_add = lm(CO.Mean ~ . - State - County - City - Date.Local, data = pollution)
+vif(pollution_add)
+names(pollution)[vif(pollution_add) <= 5]
+names(pollution)[vif(pollution_add) <= 10]
+```
+
+<br>
+
+We can see that quite a few of our prospective predictor variables have large VIF values, which suggests multicolinearity. Our next step will be to compare the resulting smaller models with the model containing all predictors.
+
+<br>
+
+```{r}
+pollution_add_less5 = lm(CO.Mean ~ NO2.1st.Max.Hour + O3.1st.Max.Hour + SO2.Mean + SO2.1st.Max.Hour + CO.1st.Max.Value, data = pollution)
+pollution_add_less10 = lm(CO.Mean ~ NO2.Mean + NO2.1st.Max.Hour + O3.Mean + O3.1st.Max.Hour + SO2.Mean + SO2.1st.Max.Hour + CO.1st.Max.Value + CO.1st.Max.Value + CO.AQI, data = pollution)
+anova(pollution_add_less5, pollution_add_less10)[2, "Pr(>F)"]
+anova(pollution_add_less10, pollution_add)[2, "Pr(>F)"]
+summary(pollution_add_less5)$adj.r.squared
+summary(pollution_add_less10)$adj.r.squared
+summary(pollution_add)$adj.r.squared
+```
+
+<br>
+
+From the ANOVA tests as well as the adjusted R-squared values above, it seems that the multicollinearity is not a problem, so we will not drop any predictors.
+
+<br>
+**Trying Two-way Interactions:**
+
+
+Now that we have made a decision on multicollinearity, we will try to expand the model with with two-way interactions.
+
+<br>
+
+```{r}
+pollution_two_way = lm(CO.Mean ~ (. - State - County - City - Date.Local) ^ 2, data = pollution)
+anova(pollution_add, pollution_two_way)[2, "Pr(>F)"]
+summary(pollution_add)$adj.r.squared
+summary(pollution_two_way)$adj.r.squared
+```
+
+<br>
+
+As we can see, the model using two-way interactions outperforms the previous best additive model. We can now try to use backwards AIC variable selection to make the model smaller.
+
+<br>
+
+```{r}
+pollution_two_back_aic = step(pollution_two_way, direction = "backward", trace = 0)
+anova(pollution_two_back_aic, pollution_two_way)[2, "Pr(>F)"]
+summary(pollution_two_way)$adj.r.squared
+summary(pollution_two_back_aic)$adj.r.squared
+```
+
+<br>
+
+From the ANOVA test as well as the adjusted R-squared values, we can see that the model produced from the backwards AIC variable selection performs better than the previous best model with all two-way interactions.
+
+<br>
+
+```{r}
+length(names(coef(pollution_two_way)))
+length(names(coef(pollution_two_back_aic)))
+```
+
+<br>
+
+Taking a look at the number of parameters, we have managed to reduce the number of predictors from **$`r length(names(coef(pollution_two_way)))`$** to **$`r length(names(coef(pollution_two_back_aic)))`$** using the backwards AIC search method.
+
+<br>
+
+We will now use the backwards BIC search method and identify if we can improve our two - way model further.
+
+<br>
+```{r}
+n = length(resid(pollution_two_way))
+pollution_two_back_bic = step(pollution_two_way, direction = "backward", trace = 0, k = log(n))
+```
+
+<br>
+
+We will now compare this model to the one identified by the AIC search method.
+
+<br>
+
+```{r}
+anova(pollution_two_back_bic, pollution_two_back_aic)[2, "Pr(>F)"]
+summary(pollution_two_back_aic)$adj.r.squared
+summary(pollution_two_back_bic)$adj.r.squared
+```
+
+<br>
+
+From the above F - Test, we find that the p-value is very small. This means that for a reasonable confidence level of $\alpha = 0.05$, we reject the null hypothesis that that the predictors in the bigger AIC model are not significant. Furthermore, the Adjusted $R^2$ value for the AIC model is greater than the BIC model. Therefore, we lean towards the AIC model.
+
+Our final step is to identify whether our AIC model is not over - fitting the data by comparing the **Cross - Validated RMSE** to the BIC model.
+
+<br>
+
+```{r}
+calc_loocv_rmse(pollution_two_back_aic)
+calc_loocv_rmse(pollution_two_back_bic)
+```
+<br>
+
+As we can see above, the Cross - Validated RMSE is lower for the AIC model. Therefore, the AIC model is also better at predicting future observations.
+
+<br>
+
+**Trying Categorical Predictors:**
+
+
+The next step will be to attempt to add categorical predictors to the model. In order to keep the number of predictors down and to prevent the model from becoming too complex, we will only try the `State` variable.
+
+<br>
+
+```{r}
+pollution_int_categs = update(pollution_two_back_aic, . ~ . + State)
+anova(pollution_two_back_aic, pollution_int_categs)[2, "Pr(>F)"]
+summary(pollution_two_back_aic)$adj.r.squared
+summary(pollution_int_categs)$adj.r.squared
+```
+
+<br>
+
+From the anova test and the r-squared values above, we can see that the `State` categorical predictor does improve the model, so we will leave it in going forward.
+
+
+<br>
+
+**Final Model**
+
+Based on our analyses, we have decided to use an additive model with `State` as a categorical predictor and featuring two-way interactions, trimmed with the backwards AIC search method as our final model for predicting `CO.Mean` levels. The total number of predictors is $`r length(names(coef(pollution_int_categs)))`$ and the adjusted r-square value is $`r summary(pollution_int_categs)$adj.r.squared`$, which means it should be quite effective for predicting results for future observations.
+
+<br>
+
+**Discussion**
+
+Let us check if any assumptions are violated:
+
+
+```{r}
+fitted_vs_residuals(pollution_int_categs, "dodgerblue", "orange")
+bptest(pollution_int_categs)
+```
+
+<br>
+
+From the fitted vs residuals plot, we can see that the constant variance assumption might be violated. This is confirmed by the Breusch-Pagan Test.
+
+<br>
+
+
+```{r}
+qq_plot(pollution_int_categs, "dodgerblue", "orange")
+shapiro.test(resid(pollution_int_categs))
+```
+
+<br>
+
+Here both the Q-Q plot and Shapiro-Wilk test suggest that the normality assumption is violated.
+
+<br>
+```{r}
+calc_loocv_rmse(pollution_int_categs)
+```
+
+<br>
+
+So, with that in mind, our final model seems to be good for prediction (due to the very small Cross - Validated RMSE we see from above), but it is not so good for explanation. Since we are only using our model to predict CO mean, then this is not a big problem for us. Our goal is not to determine the relationship between CO levels and other gases in the air. Instead, we are only focusing on predicting CO mean based on the other variables in our model. Therefore, we conclude with our final model from above.
+
+<br>
+
+
+
+**Appendix**
+
+This report was created with the collaboration of Sarah Lee, Aayush Aggarwal, Albert Sadiku, Alexander Marcozzi.
+
+<br>
+
