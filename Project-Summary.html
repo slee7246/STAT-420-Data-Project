@@ -177,11 +177,11 @@ a.sourceLine {
 <h1>Introduction</h1>
 <div id="why-is-this-important" class="section level2">
 <h2>Why Is This Important?</h2>
-<p>Pollution is one of the leading causes of global warming; hence, it is important to analyze the factors behind it to minimize and control it. Since the United States is one of the world’s biggest industrial and commercial nations, we chose this EPA sourced dataset that measures the effect of 4 different pollutants in the country: NO2, O3, SO2, and CO. Due to time constraints and the scope of this class (STAT 420), we decided to focus mainly on the CO2 levels and develop a model that can predict future observations.</p>
+<p>Pollution is one of the leading causes of global warming; hence, it is important to analyze the factors behind it to minimize and control it. Since the United States is one of the world’s biggest industrial and commercial nations, we chose this EPA sourced dataset that measures the effect of 4 different pollutants in the country: NO2, O3, SO2, and CO. Due to time constraints and the scope of this class (STAT 420), we decided to focus mainly on the CO levels and develop a model that can predict future observations.</p>
 </div>
 <div id="description" class="section level2">
 <h2>Description</h2>
-<p>This project focuses on pollution in the U.S. The file includes emission data from cities and towns around the country across multiple days and years, though we have chosen to focus on 2016 specifically. The variables include location information, such as state, city, and county, along with pollution information such as the amount of various greenhouse gasses emitted such as NO2, CO2, SO2, and O3. In total, there are 24 variables that actually contain data, and there are 6151 observations after cleaning duplicate entries and taking just the 2016 data. We will be attempting to create a model with CO.Mean as the response.</p>
+<p>This project focuses on pollution in the U.S. The file includes emission data from cities and towns around the country across multiple days and years, though we have chosen to focus on 2016 specifically. The variables include location information, such as state, city, and county, along with pollution information such as the amount of various greenhouse gasses emitted such as NO2, CO, SO2, and O3. In total, there are 24 variables that actually contain data, and there are 6151 observations after cleaning duplicate entries and taking just the 2016 data. We will be attempting to create a model with CO.Mean as the response.</p>
 </div>
 <div id="background-information-of-our-dataset" class="section level2">
 <h2>Background Information of Our Dataset</h2>
@@ -201,13 +201,11 @@ a.sourceLine {
 <div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1"></a><span class="co"># for VIF function</span></span>
 <span id="cb1-2"><a href="#cb1-2"></a><span class="kw">library</span>(faraway)  </span>
 <span id="cb1-3"><a href="#cb1-3"></a>pollution =<span class="st"> </span><span class="kw">read.csv</span>(<span class="st">&#39;pollution_no_dup.csv&#39;</span>)</span>
-<span id="cb1-4"><a href="#cb1-4"></a></span>
-<span id="cb1-5"><a href="#cb1-5"></a><span class="co"># remove unnecessary variables</span></span>
-<span id="cb1-6"><a href="#cb1-6"></a>pollution =<span class="st"> </span><span class="kw">subset</span>(pollution, <span class="dt">select =</span> <span class="op">-</span><span class="kw">c</span>(X, State.Code, County.Code, Site.Num, Address, NO2.Units, O3.Units, SO2.Units, CO.Units)) </span>
-<span id="cb1-7"><a href="#cb1-7"></a></span>
-<span id="cb1-8"><a href="#cb1-8"></a><span class="co"># remove entries that are missing data</span></span>
-<span id="cb1-9"><a href="#cb1-9"></a>pollution =<span class="st"> </span>pollution[<span class="kw">complete.cases</span>(pollution), ]</span>
-<span id="cb1-10"><a href="#cb1-10"></a><span class="kw">names</span>(pollution)</span></code></pre></div>
+<span id="cb1-4"><a href="#cb1-4"></a><span class="co"># remove unnecessary variables</span></span>
+<span id="cb1-5"><a href="#cb1-5"></a>pollution =<span class="st"> </span><span class="kw">subset</span>(pollution, <span class="dt">select =</span> <span class="op">-</span><span class="kw">c</span>(X, State.Code, County.Code, Site.Num, Address, NO2.Units, O3.Units, SO2.Units, CO.Units)) </span>
+<span id="cb1-6"><a href="#cb1-6"></a><span class="co"># remove entries that are missing data</span></span>
+<span id="cb1-7"><a href="#cb1-7"></a>pollution =<span class="st"> </span>pollution[<span class="kw">complete.cases</span>(pollution), ]</span>
+<span id="cb1-8"><a href="#cb1-8"></a><span class="kw">names</span>(pollution)</span></code></pre></div>
 <pre><code>##  [1] &quot;State&quot;             &quot;County&quot;            &quot;City&quot;             
 ##  [4] &quot;Date.Local&quot;        &quot;NO2.Mean&quot;          &quot;NO2.1st.Max.Value&quot;
 ##  [7] &quot;NO2.1st.Max.Hour&quot;  &quot;NO2.AQI&quot;           &quot;O3.Mean&quot;          
@@ -219,20 +217,18 @@ a.sourceLine {
 <div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1"></a>calc_loocv_rmse =<span class="st"> </span><span class="cf">function</span>(model) {</span>
 <span id="cb3-2"><a href="#cb3-2"></a>  <span class="kw">sqrt</span>(<span class="kw">mean</span>((<span class="kw">resid</span>(model) <span class="op">/</span><span class="st"> </span>(<span class="dv">1</span> <span class="op">-</span><span class="st"> </span><span class="kw">hatvalues</span>(model))) <span class="op">^</span><span class="st"> </span><span class="dv">2</span>))</span>
 <span id="cb3-3"><a href="#cb3-3"></a>}</span>
-<span id="cb3-4"><a href="#cb3-4"></a></span>
-<span id="cb3-5"><a href="#cb3-5"></a>fitted_vs_residuals =<span class="st"> </span><span class="cf">function</span>(model, pointcol, linecol) {</span>
-<span id="cb3-6"><a href="#cb3-6"></a>  </span>
-<span id="cb3-7"><a href="#cb3-7"></a>  <span class="kw">plot</span>(<span class="kw">fitted</span>(model), <span class="kw">resid</span>(model), <span class="dt">col =</span> pointcol, <span class="dt">pch =</span> <span class="dv">20</span>,</span>
-<span id="cb3-8"><a href="#cb3-8"></a>     <span class="dt">xlab =</span> <span class="st">&quot;Fitted&quot;</span>, </span>
-<span id="cb3-9"><a href="#cb3-9"></a>     <span class="dt">ylab =</span> <span class="st">&quot;Residuals&quot;</span>, <span class="dt">main =</span> <span class="st">&quot;Data from Model&quot;</span>)</span>
-<span id="cb3-10"><a href="#cb3-10"></a>  </span>
-<span id="cb3-11"><a href="#cb3-11"></a>  <span class="kw">abline</span>(<span class="dt">h =</span> <span class="dv">0</span>, <span class="dt">col =</span> linecol, <span class="dt">lwd =</span> <span class="dv">2</span>)</span>
-<span id="cb3-12"><a href="#cb3-12"></a>}</span>
-<span id="cb3-13"><a href="#cb3-13"></a></span>
-<span id="cb3-14"><a href="#cb3-14"></a>qq_plot =<span class="st"> </span><span class="cf">function</span>(model, pointcol, linecol) {</span>
-<span id="cb3-15"><a href="#cb3-15"></a>  <span class="kw">qqnorm</span>(<span class="kw">resid</span>(model), <span class="dt">main =</span> <span class="st">&quot;Normal Q-Q Plot&quot;</span>, <span class="dt">col =</span> pointcol, <span class="dt">pch =</span> <span class="dv">20</span>)</span>
-<span id="cb3-16"><a href="#cb3-16"></a>  <span class="kw">qqline</span>(<span class="kw">resid</span>(model), <span class="dt">col =</span> linecol, <span class="dt">lwd =</span> <span class="dv">2</span>)</span>
-<span id="cb3-17"><a href="#cb3-17"></a>}</span></code></pre></div>
+<span id="cb3-4"><a href="#cb3-4"></a>fitted_vs_residuals =<span class="st"> </span><span class="cf">function</span>(model, pointcol, linecol) {</span>
+<span id="cb3-5"><a href="#cb3-5"></a>  </span>
+<span id="cb3-6"><a href="#cb3-6"></a>  <span class="kw">plot</span>(<span class="kw">fitted</span>(model), <span class="kw">resid</span>(model), <span class="dt">col =</span> pointcol, <span class="dt">pch =</span> <span class="dv">20</span>,</span>
+<span id="cb3-7"><a href="#cb3-7"></a>     <span class="dt">xlab =</span> <span class="st">&quot;Fitted&quot;</span>, </span>
+<span id="cb3-8"><a href="#cb3-8"></a>     <span class="dt">ylab =</span> <span class="st">&quot;Residuals&quot;</span>, <span class="dt">main =</span> <span class="st">&quot;Data from Model&quot;</span>)</span>
+<span id="cb3-9"><a href="#cb3-9"></a>  </span>
+<span id="cb3-10"><a href="#cb3-10"></a>  <span class="kw">abline</span>(<span class="dt">h =</span> <span class="dv">0</span>, <span class="dt">col =</span> linecol, <span class="dt">lwd =</span> <span class="dv">2</span>)</span>
+<span id="cb3-11"><a href="#cb3-11"></a>}</span>
+<span id="cb3-12"><a href="#cb3-12"></a>qq_plot =<span class="st"> </span><span class="cf">function</span>(model, pointcol, linecol) {</span>
+<span id="cb3-13"><a href="#cb3-13"></a>  <span class="kw">qqnorm</span>(<span class="kw">resid</span>(model), <span class="dt">main =</span> <span class="st">&quot;Normal Q-Q Plot&quot;</span>, <span class="dt">col =</span> pointcol, <span class="dt">pch =</span> <span class="dv">20</span>)</span>
+<span id="cb3-14"><a href="#cb3-14"></a>  <span class="kw">qqline</span>(<span class="kw">resid</span>(model), <span class="dt">col =</span> linecol, <span class="dt">lwd =</span> <span class="dv">2</span>)</span>
+<span id="cb3-15"><a href="#cb3-15"></a>}</span></code></pre></div>
 </div>
 <div id="models" class="section level2">
 <h2>Models</h2>
@@ -326,7 +322,7 @@ a.sourceLine {
 <h1>Results</h1>
 <div id="discussion" class="section level2">
 <h2>Discussion</h2>
-<p>As stated above, the Cross - Validated RMSE is lower for the AIC model. Therefore, we can conclude that the AIC model is better at predicting future observations (CO2 Means) compared to other models.</p>
+<p>As stated above, the Cross - Validated RMSE is lower for the AIC model. Therefore, we can conclude that the AIC model is better at predicting future observations (CO Means) compared to other models.</p>
 </div>
 <div id="appendix" class="section level2">
 <h2>Appendix</h2>
