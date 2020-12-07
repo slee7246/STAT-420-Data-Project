@@ -290,7 +290,7 @@ a.sourceLine {
 <div class="sourceCode" id="cb34"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb34-1"><a href="#cb34-1"></a><span class="kw">length</span>(<span class="kw">names</span>(<span class="kw">coef</span>(pollution_two_back_aic)))</span></code></pre></div>
 <pre><code>## [1] 84</code></pre>
 <p>Taking a look at the number of parameters, we have managed to reduce the number of predictors from <strong><span class="math inline">\(121\)</span></strong> to <strong><span class="math inline">\(84\)</span></strong> using the backwards AIC search method.</p>
-<p>We will now use the backwards BIC search method and identify if we can improve our two - way model further.</p>
+<p>We will now use the backwards BIC search method and identify if we can improve our two-way model further.</p>
 <div class="sourceCode" id="cb36"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb36-1"><a href="#cb36-1"></a>n =<span class="st"> </span><span class="kw">length</span>(<span class="kw">resid</span>(pollution_two_way))</span>
 <span id="cb36-2"><a href="#cb36-2"></a>pollution_two_back_bic =<span class="st"> </span><span class="kw">step</span>(pollution_two_way, <span class="dt">direction =</span> <span class="st">&quot;backward&quot;</span>, <span class="dt">trace =</span> <span class="dv">0</span>, <span class="dt">k =</span> <span class="kw">log</span>(n))</span></code></pre></div>
 <p>We will now compare this model to the one identified by the AIC search method.</p>
@@ -300,20 +300,20 @@ a.sourceLine {
 <pre><code>## [1] 0.9150554</code></pre>
 <div class="sourceCode" id="cb41"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb41-1"><a href="#cb41-1"></a><span class="kw">summary</span>(pollution_two_back_bic)<span class="op">$</span>adj.r.squared</span></code></pre></div>
 <pre><code>## [1] 0.9134121</code></pre>
-<p>From the above F - Test, we find that the p-value is very small. This means that for a reasonable confidence level of <span class="math inline">\(\alpha = 0.05\)</span>, we reject the null hypothesis that that the predictors in the bigger AIC model are not significant. Furthermore, the Adjusted <span class="math inline">\(R^2\)</span> value for the AIC model is greater than the BIC model. Therefore, we lean towards the AIC model.</p>
-<p>Our final step is to identify whether our AIC model is not over - fitting the data by comparing the <strong>Cross - Validated RMSE</strong> to the BIC model.</p>
+<p>From the above F-Test, we find that the p-value is very small. This means that for a reasonable confidence level of <span class="math inline">\(\alpha = 0.05\)</span>, we reject the null hypothesis that that the predictors in the bigger AIC model are not significant. Furthermore, the Adjusted <span class="math inline">\(R^2\)</span> value for the AIC model is greater than the BIC model. Therefore, we lean towards the AIC model.</p>
+<p>Our final step is to identify whether our AIC model is not over-fitting the data by comparing the <strong>Cross-Validated RMSE</strong> to the BIC model.</p>
 <div class="sourceCode" id="cb43"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb43-1"><a href="#cb43-1"></a><span class="kw">calc_loocv_rmse</span>(pollution_two_back_aic)</span></code></pre></div>
 <pre><code>## [1] 0.05666381</code></pre>
 <div class="sourceCode" id="cb45"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb45-1"><a href="#cb45-1"></a><span class="kw">calc_loocv_rmse</span>(pollution_two_back_bic)</span></code></pre></div>
 <pre><code>## [1] 0.05655067</code></pre>
 <p><strong>Trying Categorical Predictors</strong></p>
 <p>Next, we will be to attempt to add categorical predictors to the model. In order to keep the number of predictors down and to prevent the model from becoming too complex, we will only try the <code>State</code> variable.</p>
-<div class="sourceCode" id="cb47"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb47-1"><a href="#cb47-1"></a>pollution_int_categs =<span class="st"> </span><span class="kw">update</span>(pollution_two_back_aic, . <span class="op">~</span><span class="st"> </span>. <span class="op">+</span><span class="st"> </span>State)</span>
-<span id="cb47-2"><a href="#cb47-2"></a><span class="kw">anova</span>(pollution_two_back_aic, pollution_int_categs)[<span class="dv">2</span>, <span class="st">&quot;Pr(&gt;F)&quot;</span>]</span></code></pre></div>
+<div class="sourceCode" id="cb47"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb47-1"><a href="#cb47-1"></a>pollution_aic_categs =<span class="st"> </span><span class="kw">update</span>(pollution_two_back_aic, . <span class="op">~</span><span class="st"> </span>. <span class="op">+</span><span class="st"> </span>State)</span>
+<span id="cb47-2"><a href="#cb47-2"></a><span class="kw">anova</span>(pollution_two_back_aic, pollution_aic_categs)[<span class="dv">2</span>, <span class="st">&quot;Pr(&gt;F)&quot;</span>]</span></code></pre></div>
 <pre><code>## [1] 3.994012e-144</code></pre>
 <div class="sourceCode" id="cb49"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb49-1"><a href="#cb49-1"></a><span class="kw">summary</span>(pollution_two_back_aic)<span class="op">$</span>adj.r.squared</span></code></pre></div>
 <pre><code>## [1] 0.9150554</code></pre>
-<div class="sourceCode" id="cb51"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb51-1"><a href="#cb51-1"></a><span class="kw">summary</span>(pollution_int_categs)<span class="op">$</span>adj.r.squared</span></code></pre></div>
+<div class="sourceCode" id="cb51"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb51-1"><a href="#cb51-1"></a><span class="kw">summary</span>(pollution_aic_categs)<span class="op">$</span>adj.r.squared</span></code></pre></div>
 <pre><code>## [1] 0.9314049</code></pre>
 <p>From the anova test and the r-squared values above, we can see that the <code>State</code> categorical predictor does improve the model, so we will leave it in going forward.</p>
 </div>
@@ -322,7 +322,7 @@ a.sourceLine {
 <h1>Results</h1>
 <div id="discussion" class="section level2">
 <h2>Discussion</h2>
-<p>As stated above, the Cross - Validated RMSE is lower for the AIC model. Therefore, we can conclude that the AIC model is better at predicting future observations (CO Means) compared to other models.</p>
+<p>From the methods above, we can conclude that the model produced by the backwards AIC search method featuring interactive terms and the <code>State</code> categorical predictor is the best choice of the models we have examined. This model contains <span class="math inline">\(102\)</span> predictor terms and has an adjusted R-Squared of <span class="math inline">\(0.9314049\)</span>. Since the number of predictors is relatively high, the model is probably not well suited for explaination, but the hight adjusted R-Squared value means that it should be quite effective for predicting the CO Mean of future observations.</p>
 </div>
 <div id="appendix" class="section level2">
 <h2>Appendix</h2>
