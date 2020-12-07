@@ -12,12 +12,12 @@ output:
 
 ## Why Is This Important?
 
-Pollution is one of the leading causes of global warming; hence, it is important to analyze the factors behind it to minimize and control it. Since the United States is one of the world’s biggest industrial and commercial nations, we chose this EPA sourced dataset that measures the effect of 4 different pollutants in the country: NO2, O3, SO2, and CO. Due to time constraints and the scope of this class (STAT 420), we decided to focus mainly on the CO2 levels and develop a model that can predict future observations.
+Pollution is one of the leading causes of global warming; hence, it is important to analyze the factors behind it to minimize and control it. Since the United States is one of the world’s biggest industrial and commercial nations, we chose this EPA sourced dataset that measures the effect of 4 different pollutants in the country: NO2, O3, SO2, and CO. Due to time constraints and the scope of this class (STAT 420), we decided to focus mainly on the CO levels and develop a model that can predict future observations.
 
 
 ## Description
 
-This project focuses on pollution in the U.S. The file includes emission data from cities and towns around the country across multiple days and years, though we have chosen to focus on 2016 specifically. The variables include location information, such as state, city, and county, along with pollution information such as the amount of various greenhouse gasses emitted such as NO2, CO2, SO2, and O3. In total, there are 24 variables that actually contain data, and there are 6151 observations after cleaning duplicate entries and taking just the 2016 data. We will be attempting to create a model with CO.Mean as the response.
+This project focuses on pollution in the U.S. The file includes emission data from cities and towns around the country across multiple days and years, though we have chosen to focus on 2016 specifically. The variables include location information, such as state, city, and county, along with pollution information such as the amount of various greenhouse gasses emitted such as NO2, CO, SO2, and O3. In total, there are 24 variables that actually contain data, and there are 6151 observations after cleaning duplicate entries and taking just the 2016 data. We will be attempting to create a model with CO.Mean as the response.
 
 
 ## Background Information of Our Dataset
@@ -41,10 +41,8 @@ The original dataset had two sets of duplicated measurements each day, the only 
 # for VIF function
 library(faraway)  
 pollution = read.csv('pollution_no_dup.csv')
-
 # remove unnecessary variables
 pollution = subset(pollution, select = -c(X, State.Code, County.Code, Site.Num, Address, NO2.Units, O3.Units, SO2.Units, CO.Units)) 
-
 # remove entries that are missing data
 pollution = pollution[complete.cases(pollution), ]
 names(pollution)
@@ -57,7 +55,6 @@ names(pollution)
 calc_loocv_rmse = function(model) {
   sqrt(mean((resid(model) / (1 - hatvalues(model))) ^ 2))
 }
-
 fitted_vs_residuals = function(model, pointcol, linecol) {
   
   plot(fitted(model), resid(model), col = pointcol, pch = 20,
@@ -66,7 +63,6 @@ fitted_vs_residuals = function(model, pointcol, linecol) {
   
   abline(h = 0, col = linecol, lwd = 2)
 }
-
 qq_plot = function(model, pointcol, linecol) {
   qqnorm(resid(model), main = "Normal Q-Q Plot", col = pointcol, pch = 20)
   qqline(resid(model), col = linecol, lwd = 2)
@@ -172,7 +168,6 @@ Next, we will be to attempt to add categorical predictors to the model. In order
 ```{r}
 pollution_int_categs = update(pollution_two_back_aic, . ~ . + State)
 anova(pollution_two_back_aic, pollution_int_categs)[2, "Pr(>F)"]
-
 summary(pollution_two_back_aic)$adj.r.squared
 summary(pollution_int_categs)$adj.r.squared
 ```
@@ -183,9 +178,8 @@ From the anova test and the r-squared values above, we can see that the `State` 
 
 ## Discussion 
 
-As stated above, the Cross - Validated RMSE is lower for the AIC model. Therefore, we can conclude that the AIC model is better at predicting future observations (CO2 Means) compared to other models.
+As stated above, the Cross - Validated RMSE is lower for the AIC model. Therefore, we can conclude that the AIC model is better at predicting future observations (CO Means) compared to other models.
 
 ## Appendix   
 
 This report was created by Sarah Lee, Aayush Aggarwal, Albert Sadiku, Alexander Marcozzi.
-
